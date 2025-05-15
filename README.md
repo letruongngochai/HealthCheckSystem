@@ -2,17 +2,17 @@
 ##    📊 1. Data Overview
 * Table of data definitions
 * Heart disease dataset summary
-![image](https://hackmd.io/_uploads/H17tbwQZeg.png)
+![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(1).png)
 
 ##    📉 2. Statistics for Numerical Variables
 * Displays summary statistics like mean, std, min, max
 * Interpretations for numerical features (age, cholesterol, etc.)
-![image](https://hackmd.io/_uploads/B125-DQWxg.png)
+![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(2).png)
 
 ##    🧮 3. Statistics for Categorical Variables
 * Frequency distribution of features like sex, cp, thal, etc.
 * Insightful analysis written in markdown
-![image](https://hackmd.io/_uploads/SyG2WwQ-el.png)
+![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(3).png)
 
 ##    🔎 4. Data Analysis
 * Interactive histograms for numerical variables with KDE plots
@@ -22,8 +22,8 @@
 
 | Univariate Analysis | Bivariate Analysis |
 | -------- | -------- |
-| ![image](https://hackmd.io/_uploads/HJnMfwm-ll.png)     | ![image](https://hackmd.io/_uploads/Bk4qGPmWgg.png)     |
-| ![image](https://hackmd.io/_uploads/SJFvGw7blx.png)     | ![image](https://hackmd.io/_uploads/ByeTfwQ-ex.png)     |
+| ![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(4).png)     | ![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(6).png)    |
+| ![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(5).png)     | ![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(7).png)     |
 
 
 
@@ -31,8 +31,8 @@
 * Form-based prediction system
 * Takes input parameters like age, chol, thalach, etc.
 * Returns whether your heart is fine or not
-![image](https://hackmd.io/_uploads/BJgpqmv7bll.png)
-![image](https://hackmd.io/_uploads/ryhpmPXbxg.png)
+![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(8).png)
+![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(9).png)
 
 
 ##    🧠 6. Brain Tumor Segmentation
@@ -40,8 +40,8 @@
 * Backend UNet model segments and returns tumor overlay
 * Uploaded images are stored securely on Google Cloud Storage (GCS)
 
-![image](https://hackmd.io/_uploads/S1XeNvm-xe.png)
-![image](https://hackmd.io/_uploads/B1gGNwQbgx.png)
+![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(10).png)
+![image](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/image/figure%20(11).png)
 
 
 #    ☁️ Cloud Integration
@@ -63,9 +63,9 @@
 
 #    🤖 Model Training
 ##    1. Heart Disease Prediction
-* Data: heart.csv
+* Data: [heart.csv](https://github.com/letruongngochai/HealthCheckSystem/blob/main/main/src/data/heart.csv)
 * Method: Support Vector Machine
 ##    2.  Brain Tumor Segmentation
 * Data: Figshare dataset
 * Method: UNet
-* Training Notebook: https://colab.research.google.com/drive/1uLLaTYgcjHuy25ShSNTHF1irsXIGFMhF?usp=sharing
+* [Training Notebook](https://colab.research.google.com/drive/1uLLaTYgcjHuy25ShSNTHF1irsXIGFMhF?usp=sharing)
