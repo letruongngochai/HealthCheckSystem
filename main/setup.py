@@ -10,7 +10,27 @@ from CONSTANT import *
 import matplotlib.ticker as ticker
 from matplotlib.colors import ListedColormap
 from PIL import Image
+from google.cloud import storage
+import io
+import uuid
 
+def upload_image_to_gcs(image: Image.Image, destination_blob_name: str) -> str:
+    """Upload ảnh PIL lên GCS và trả về URL công khai"""
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(destination_blob_name)
+
+    # Chuyển ảnh PIL thành bytes
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, format="PNG")
+    img_bytes.seek(0)
+
+    blob.upload_from_file(img_bytes, content_type="image/png")
+    blob.make_public()
+
+    return blob.public_url
+
+BUCKET_NAME = 'model_result_ngochai'
 
 # Sidebar navigation
 st.sidebar.title("What to view?")
@@ -405,7 +425,10 @@ elif menu == "Heart Disease Prediction":
 
             if response.status_code == 200:
                 result = response.json()
-                st.success(f"Prediction: {result['prediction']}")
+                if result['prediction']==0:
+                    st.success(f"Your heart is good!")
+                else:
+                    st.success(f"You may have heart disease.")
             else:
                 st.error(f"Prediction failed: {response.text}")
 
@@ -414,24 +437,56 @@ elif menu == "Heart Disease Prediction":
 
 elif menu == "Brain Tumor Segmentation":
     st.title("Brain Tumor Segmentation")
+
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-    
+
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
 
-        if st.button('Submit'):
-            pass
-            # with st.spinner("Segmenting..."):
-            #     # Send request to FastAPI
-            #     response = requests.post(
-            #         url="http://127.0.0.1:8000/segment/",
-            #         files={"image": uploaded_file}
-            #     )
-                
-            #     if response.status_code == 200:
-            #         # Load image from response bytes
-            #         segmented_image = Image.open(io.BytesIO(response.content))
-            #         st.image(segmented_image, caption="Segmented Image", use_container_width=True)
-            #     else:
-            #         st.error(f"Error {response.status_code}: {response.text}")
+        # Create 2 columns right after upload
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("Uploaded Image")
+            st.image(image, use_container_width=True)
+
+        with col2:
+            st.subheader("Segmented Image")
+            segmented_placeholder = st.empty()  # Placeholder to update after submit
+
+        result_text_placeholder = st.empty()
+
+        if st.button("Submit"):
+            try:
+                # Reset file pointer before upload
+                uploaded_file.seek(0)
+
+                filename = f"{uuid.uuid4()}_{uploaded_file.name}"
+                dest_blob_name = f"results/{filename}"
+                image_url = upload_image_to_gcs(image, dest_blob_name)
+
+                # Call segmentation API
+                response = requests.post("http://localhost:8000/segment/", json={"image_url": image_url})
+                result = response.json()
+
+                if response.status_code == 200:
+                    segmented_placeholder.image(result["segmented_url"], use_container_width=True)
+
+
+                    segmented_response = requests.get(result["segmented_url"])
+                    if segmented_response.status_code == 200:
+                        segmented_img = Image.open(io.BytesIO(segmented_response.content)).convert("L")
+                        mask_array = np.array(segmented_img)
+
+                        tumor_pixels = np.sum(mask_array > 0)
+                        if tumor_pixels > 10:
+                            result_text_placeholder.success("🧠 Brain tumor detected.")
+                        else:
+                            result_text_placeholder.info("✅ No brain tumor detected.")
+                    else:
+                        result_text_placeholder.error("Failed to download segmented image.")
+
+                else:
+                    st.error(f"API error: {result}")
+            except Exception as e:
+                st.error(f"Error: {e}")

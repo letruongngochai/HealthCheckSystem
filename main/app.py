@@ -13,16 +13,21 @@ from fastapi import File, UploadFile
 from fastapi.responses import StreamingResponse
 import io
 from PIL import Image
+import os
+from google.cloud import storage
+import requests
+import uuid
 
-model_path = 'src\models\svm.pkl'
+
+model_path = 'src/models/svm.pkl'
 with open(model_path, 'rb') as file:
     model = pickle.load(file)
 
-sc_path = 'src\models\sc.pkl'
+sc_path = 'src/models/sc.pkl'
 with open(sc_path, 'rb') as file:
     sc = pickle.load(file)
 
-seg_model = r"src\models\checkpoint_epoch50.pth"
+seg_model = r"src/models/checkpoint_epoch50.pth"
 net = UNet(n_channels=1, n_classes=1, bilinear=True)
 net = net.to(memory_format=torch.channels_last)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -30,6 +35,24 @@ net.to(device=device)
 state_dict = torch.load(seg_model, map_location=device)
 mask_values = state_dict.pop('mask_values', [0, 1])
 net.load_state_dict(state_dict)
+
+def upload_image_to_gcs(image: Image.Image, destination_blob_name: str) -> str:
+    """Upload ảnh PIL lên GCS và trả về URL công khai"""
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(destination_blob_name)
+
+    # Chuyển ảnh PIL thành bytes
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, format="PNG")
+    img_bytes.seek(0)
+
+    blob.upload_from_file(img_bytes, content_type="image/png")
+    blob.make_public()
+
+    return blob.public_url
+
+BUCKET_NAME = 'model_result_ngochai'
 
 def predict_img(net,
                 full_img,
@@ -70,7 +93,7 @@ def mask_to_image(mask: np.ndarray, mask_values):
 
 # Create FastAPI instance
 app = FastAPI()
-data = pd.read_csv("src\data\heart.csv")
+data = pd.read_csv("src/data/heart.csv")
 
 class Patient(BaseModel):
     age: int
@@ -180,37 +203,37 @@ def get_data():
     df = pd.read_csv("src/data/heart.csv")
     return df.to_dict(orient="records")
 
-# @app.post("/segment/", response_model=ImgResponse)
-# def segment(image: ImgResponse):
-#     image_bytes = image.file.read()
-#     pil_image = Image.open(image_bytes)
-#     resized_image = pil_image.resize((256, 256))
 
-#     mask = predict_img(net=net,
-#                        full_img=resized_image,
-#                        scale_factor=0.5,
-#                        out_threshold=0.5,
-#                        device=device)
-#     result = mask_to_image(mask, mask_values)
+class SegmentRequest(BaseModel):
+    image_url: str
 
-#     return {"image": result}
+@app.post("/segment")
+async def segment_image(image: SegmentRequest):
+    # Step 1: Download ảnh từ image_url
+    response = requests.get(image.image_url)
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Could not download image from provided URL")
 
+    img = Image.open(io.BytesIO(response.content)).convert("L")
+    resized_img = img.resize((256, 256))
 
-# # GET method - Get item by ID
-# @app.get("/items/{item_id}")
-# def read_item(item_id: int, q: Optional[str] = None):
-#     return {"item_id": item_id, "q": q}
+    # Step 2: Dự đoán segmentation mask
+    mask = predict_img(
+        net=net,
+        full_img=resized_img,
+        scale_factor=0.5,
+        out_threshold=0.5,
+        device=device
+    )
 
-# POST method - Create an item
-# @app.post("/items/")
-# def create_item(item: Item):
-#     return {"item_name": item.name, "item_price": item.price, "is_offer": item.is_offer}
+    # Step 3: Chuyển mask thành ảnh kết quả
+    segmented_img = mask_to_image(mask, mask_values)
 
-# # POST method - Simple echo endpoint
-# @app.post("/echo/")
-# def echo_message(message: dict):
-#     return {"echoed_message": message}
+    # Step 4: Upload ảnh kết quả lên GCS
+    filename = f"results/{uuid.uuid4()}_segmented.png"
+    segmented_url = upload_image_to_gcs(segmented_img, filename)
 
-# To run the application:
-# uvicorn app:app --reload
-# Replace 'main' with your filename if different
+    return {
+        "status": "success",
+        "segmented_url": segmented_url
+    }
