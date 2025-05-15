@@ -9,6 +9,8 @@ import requests
 from CONSTANT import *
 import matplotlib.ticker as ticker
 from matplotlib.colors import ListedColormap
+from PIL import Image
+
 
 # Sidebar navigation
 st.sidebar.title("What to view?")
@@ -18,7 +20,8 @@ menu = st.sidebar.radio("Go to", [
     "Statistics for Categorical Variables",
     "Univariate Analysis",
     "Bivariate Analysis",
-    "Inference"
+    "Heart Disease Prediction",
+    "Brain Tumor Segmentation"
 ])
 
 # Sample data (replace with your actual data loading)
@@ -363,8 +366,8 @@ elif menu == "Bivariate Analysis":
         The reversible defect category (2) has a higher proportion of heart disease presence compared to the other categories, emphasizing its importance in prediction.
         """)
 
-elif menu == "Inference":
-    st.title("Inference")
+elif menu == "Heart Disease Prediction":
+    st.title("Heart Disease Prediction")
 
     age = st.slider("Age", min_value=1, max_value=120, value=50)
     sex = st.radio("Sex", ["Male", "Female"])
@@ -408,3 +411,27 @@ elif menu == "Inference":
 
         except Exception as e:
             st.error(f"Error calling prediction API: {e}")
+
+elif menu == "Brain Tumor Segmentation":
+    st.title("Brain Tumor Segmentation")
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+    
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+
+        if st.button('Submit'):
+            pass
+            # with st.spinner("Segmenting..."):
+            #     # Send request to FastAPI
+            #     response = requests.post(
+            #         url="http://127.0.0.1:8000/segment/",
+            #         files={"image": uploaded_file}
+            #     )
+                
+            #     if response.status_code == 200:
+            #         # Load image from response bytes
+            #         segmented_image = Image.open(io.BytesIO(response.content))
+            #         st.image(segmented_image, caption="Segmented Image", use_container_width=True)
+            #     else:
+            #         st.error(f"Error {response.status_code}: {response.text}")

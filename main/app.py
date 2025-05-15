@@ -5,6 +5,14 @@ import pandas as pd
 from CONSTANT import *
 import pickle
 import numpy as np
+import torch
+import torch.nn.functional as F
+from src.data.data_loading import BasicDataset
+from src.models.unet import UNet
+from fastapi import File, UploadFile
+from fastapi.responses import StreamingResponse
+import io
+from PIL import Image
 
 model_path = 'src\models\svm.pkl'
 with open(model_path, 'rb') as file:
@@ -13,6 +21,52 @@ with open(model_path, 'rb') as file:
 sc_path = 'src\models\sc.pkl'
 with open(sc_path, 'rb') as file:
     sc = pickle.load(file)
+
+seg_model = r"src\models\checkpoint_epoch50.pth"
+net = UNet(n_channels=1, n_classes=1, bilinear=True)
+net = net.to(memory_format=torch.channels_last)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+net.to(device=device)
+state_dict = torch.load(seg_model, map_location=device)
+mask_values = state_dict.pop('mask_values', [0, 1])
+net.load_state_dict(state_dict)
+
+def predict_img(net,
+                full_img,
+                device,
+                scale_factor=1,
+                out_threshold=0.5):
+    net.eval()
+    img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, is_mask=False))
+    img = img.unsqueeze(0)
+    img = img.to(device=device, dtype=torch.float32)
+
+    with torch.no_grad():
+        output = net(img).cpu()
+        output = F.interpolate(output, (full_img.size[1], full_img.size[0]), mode='bilinear')
+        if net.n_classes > 1:
+            mask = output.argmax(dim=1)
+        else:
+            mask = torch.sigmoid(output) > out_threshold
+
+    return mask[0].long().squeeze().numpy()
+
+def mask_to_image(mask: np.ndarray, mask_values):
+    if isinstance(mask_values[0], list):
+        out = np.zeros((mask.shape[-2], mask.shape[-1], len(mask_values[0])), dtype=np.uint8)
+    elif mask_values == [0, 1]:
+        out = np.zeros((mask.shape[-2], mask.shape[-1]), dtype=bool)
+    else:
+        out = np.zeros((mask.shape[-2], mask.shape[-1]), dtype=np.uint8)
+
+    if mask.ndim == 3:
+        mask = np.argmax(mask, axis=0)
+
+    for i, v in enumerate(mask_values):
+        out[mask == i] = v
+
+    return Image.fromarray(out)
+
 
 # Create FastAPI instance
 app = FastAPI()
@@ -50,6 +104,9 @@ class Patient(BaseModel):
 
 class PredictionResponse(BaseModel):
     prediction: int
+
+# class ImgResponse(BaseModel):
+#     image: Image
 
 # GET method - Root endpoint
 @app.get("/")
@@ -122,6 +179,22 @@ def predict(patient: Patient):
 def get_data():
     df = pd.read_csv("src/data/heart.csv")
     return df.to_dict(orient="records")
+
+# @app.post("/segment/", response_model=ImgResponse)
+# def segment(image: ImgResponse):
+#     image_bytes = image.file.read()
+#     pil_image = Image.open(image_bytes)
+#     resized_image = pil_image.resize((256, 256))
+
+#     mask = predict_img(net=net,
+#                        full_img=resized_image,
+#                        scale_factor=0.5,
+#                        out_threshold=0.5,
+#                        device=device)
+#     result = mask_to_image(mask, mask_values)
+
+#     return {"image": result}
+
 
 # # GET method - Get item by ID
 # @app.get("/items/{item_id}")
